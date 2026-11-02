@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "form": {
+    "name": "Lead Gen Starter",
+    "description": "Short qualifier: need, budget, contact details.",
+    "settings": { "showProgressBar": true, "leadEventOn": "completed", "savePartials": true },
+    "theme": { "primaryColor": "#4f46e5", "buttonStyle": "rounded" }
+  },
+  "welcome": {
+    "title": "Get your free quote in 60 seconds",
+    "body": "Answer a few quick questions.",
+    "buttonText": "Start"
+  },
+  "questions": [
+    {
+      "key": "service",
+      "type": "single_choice",
+      "label": "What do you need help with?",
+      "layout": "cards",
+      "options": [
+        { "value": "website", "label": "A new website", "media": { "kind": "icon", "name": "globe" } },
+        { "value": "ads", "label": "Paid advertising", "media": { "kind": "icon", "name": "megaphone" } },
+        { "value": "other", "label": "Something else", "media": { "kind": "icon", "name": "sparkles" } }
+      ]
+    },
+    {
+      "key": "budget",
+      "type": "single_choice",
+      "label": "What's your monthly budget?",
+      "options": [
+        { "value": "under_1k", "label": "Under £1,000" },
+        { "value": "1k_5k", "label": "£1,000 – £5,000" },
+        { "value": "over_5k", "label": "Over £5,000" }
+      ]
+    },
+    { "key": "full_name", "type": "short_text", "label": "What's your name?", "placeholder": "Full name" },
+    { "key": "email", "type": "email", "label": "What's your email address?", "deliverabilityCheck": true, "codeVerification": false },
+    { "key": "phone", "type": "phone", "label": "And your mobile number?", "defaultCountry": "gb", "verification": "optional" },
+    { "key": "consent", "type": "consent", "label": "I agree to be contacted about my enquiry", "linkText": "Privacy policy", "linkUrl": "https://example.com/privacy" }
+  ],
+  "logic": [
+    {
+      "id": "low_budget",
+      "after": "budget",
+      "combinator": "and",
+      "conditions": [{ "source": { "kind": "question", "key": "budget" }, "operator": "equals", "value": "under_1k" }],
+      "action": { "type": "end", "screen": "not_a_fit" }
+    }
+  ],
+  "endScreens": [
+    { "key": "thanks", "title": "Thanks, we'll be in touch shortly", "isDefault": true },
+    { "key": "not_a_fit", "title": "Thanks for your interest", "body": "We'll email you some free resources." }
+  ]
+}
