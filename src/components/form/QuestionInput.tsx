@@ -3,6 +3,7 @@
 import type { AnswerValue } from "@/lib/funnel/engine";
 import type { Question } from "@/lib/funnel/schema";
 import { Media } from "./Media";
+import { PhoneInput } from "./PhoneInput";
 
 type Props = {
   q: Question;
@@ -36,10 +37,15 @@ export function QuestionInput({ q, value, onChange, onSubmit, labelId, invalid }
       return <input {...common} autoFocus type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={str} placeholder="name@example.com" onChange={(e) => onChange(e.target.value)} />;
     case "phone":
       return (
-        <div>
-          <input {...common} autoFocus type="tel" inputMode="tel" autoComplete="tel" value={str} placeholder={q.defaultCountry === "gb" ? "07700 900123" : "+44 7700 900123"} onChange={(e) => onChange(e.target.value)} />
-          <p className="mt-2 text-sm opacity-60">Include your country code if you&apos;re outside the UK, e.g. +353</p>
-        </div>
+        <PhoneInput
+          initialValue={str}
+          onChange={onChange}
+          defaultCountry={q.defaultCountry}
+          preferredCountries={q.preferredCountries}
+          allowedCountries={q.allowedCountries}
+          labelId={labelId}
+          invalid={invalid}
+        />
       );
     case "number":
       return (

@@ -1,3 +1,4 @@
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import type { Condition, Funnel, Question } from "./schema";
 
 /**
@@ -122,10 +123,16 @@ export function validateAnswer(q: Question, value: unknown): string | null {
       return typeof value === "string" && value.length <= 254 && EMAIL_RE.test(value.trim())
         ? null
         : "Enter a valid email address";
-    case "phone":
-      return typeof value === "string" && E164_RE.test(value.replace(/\s/g, ""))
-        ? null
-        : "Enter a valid phone number including country code";
+    case "phone": {
+      // Same check in the browser and on the server (libphonenumber-js), per docs/validation-services.md section 4.
+      const parsed = typeof value === "string" && E164_RE.test(value.replace(/\s/g, ""))
+        ? parsePhoneNumberFromString(value.replace(/\s/g, ""))
+        : undefined;
+      if (!parsed?.isValid()) return "Enter a valid phone number";
+      const allowed = q.allowedCountries?.map((c) => c.toUpperCase());
+      if (allowed?.length && !allowed.includes(parsed.country ?? "")) return "We can't accept phone numbers from that country";
+      return null;
+    }
     case "single_choice":
     case "dropdown":
       return typeof value === "string" && q.options.some((o) => o.value === value) ? null : "Choose one of the options";

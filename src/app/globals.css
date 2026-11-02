@@ -24,3 +24,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* intl-tel-input: fill the column and sit above the form */
+.iti { width: 100%; }
+.iti__dropdown-content { z-index: 50; color: #111827; }

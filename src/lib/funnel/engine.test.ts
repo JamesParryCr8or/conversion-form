@@ -48,7 +48,7 @@ describe("computePath", () => {
     budget: "1k_5k",
     full_name: "Sam",
     email: "sam@example.com",
-    phone: "+447700900123",
+    phone: "+447712345678",
     consent: true,
   };
 
@@ -86,9 +86,17 @@ describe("validateAnswer", () => {
     expect(validateAnswer(q("email"), "nope")).not.toBeNull();
     expect(validateAnswer(q("email"), "a@b.co")).toBeNull();
   });
-  it("requires E.164 phone numbers", () => {
-    expect(validateAnswer(q("phone"), "07700 900123")).not.toBeNull();
-    expect(validateAnswer(q("phone"), "+44 7700 900123")).toBeNull();
+  it("requires real E.164 phone numbers", () => {
+    expect(validateAnswer(q("phone"), "07700 900123")).not.toBeNull(); // no country code
+    expect(validateAnswer(q("phone"), "+44 7712 345678")).toBeNull();
+    expect(validateAnswer(q("phone"), "+44123")).not.toBeNull(); // too short to be real
+    expect(validateAnswer(q("phone"), "+4477123456784567")).not.toBeNull(); // too long
+    expect(validateAnswer(q("phone"), "+1 555 0100")).not.toBeNull();
+  });
+  it("enforces a phone country allow-list", () => {
+    const uk = { ...q("phone"), allowedCountries: ["gb"] } as typeof funnel.questions[number];
+    expect(validateAnswer(uk, "+447712345678")).toBeNull();
+    expect(validateAnswer(uk, "+353871234567")).toMatch(/can't accept/); // valid Irish mobile, blocked
   });
   it("only accepts listed choices", () => {
     expect(validateAnswer(q("budget"), "free")).not.toBeNull();

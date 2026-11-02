@@ -171,11 +171,11 @@ Each block = a self-contained module: `{ type, editorSchema, Renderer, EditorPan
 - [ ] Block registry + interface
 - [x] Short text, long text
 - [ ] Email (with verification, see §6)
-- [ ] **Phone — intl-tel-input** (pin version, check README for v24+ option names)
-  - [ ] Options: `initialCountry: "gb"` (per-form default), `countryOrder: ["gb","ie","us"]`, `loadUtils: () => import("intl-tel-input/utils")`, `strictMode: true`
-  - [ ] Wrap as a React component (init/destroy on mount/unmount)
-  - [ ] Client `iti.isValidNumber()` for UX; submit `iti.getNumber()` (E.164)
-  - [ ] Server re-validate with `libphonenumber-js` `isValidPhoneNumber` before saving or sending an OTP
+- [x] **Phone — intl-tel-input** (pinned at 29.5.10; option names checked against its type definitions)
+  - [x] Options: `initialCountry: "gb"` (per-form default), `countryOrder: ["gb","ie","us"]`, `loadUtils: () => import("intl-tel-input/utils")`, `strictMode: true`
+  - [x] Wrap as a React component (`PhoneInput.tsx`, init/destroy on mount/unmount, loaded client-side only)
+  - [x] Submit `iti.getNumber()` (E.164); client uses the same libphonenumber-js check as the server
+  - [x] Server re-validates with `libphonenumber-js` before saving (also enforces the per-question country allow-list). Still needed: same check before sending an OTP
 - [x] Single choice (buttons / cards with image or icon)
 - [x] Multiple choice
 - [ ] Image choice grid
