@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests deliberately build invalid funnels */
 import { describe, expect, it } from "vitest";
 import { exportFunnel, parseFunnel } from "./io";
 import sample from "./templates/lead-gen.json";

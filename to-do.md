@@ -110,50 +110,57 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(?)` needs a decision
 
 ## 4. Form renderer (public, the bit leads see)
 
-- [ ] Route `/f/[formSlug]` (and later custom domains)
-- [ ] One-question-per-screen, Perspective-style layout; smooth transitions; keyboard (Enter) + tap navigation
-- [ ] Progress bar, back button
+- [x] Route `/f/[formSlug]` (custom domains later)
+- [~] One-question-per-screen layout, Enter + tap navigation (done); smooth transitions still to do
+- [x] Progress bar, back button
 - [ ] Mobile-first, fast (target < 1s LCP, minimal JS on the public page)
-- [ ] Welcome screen, question screens, thank-you / end screens (multiple, chosen by logic), redirect-on-complete option
-- [ ] Hidden fields populated from URL params (UTMs, `fbclid`, `gclid`, any custom key)
+- [x] Welcome screen, question screens, thank-you / end screens (multiple, chosen by logic), redirect-on-complete option
+- [x] Hidden fields populated from URL params (UTMs, `fbclid`, `gclid`, any custom key)
 - [ ] Prefill from URL params (`?name=James&email=...`)
 - [ ] Accessibility: labels, focus states, ARIA, contrast
 
 ### 4a. Partial submissions + resume
 
-- [ ] Create `submission` row with UUID on first load (before any answer)
-- [ ] Store submission id in URL (`?sid=`) and cookie/localStorage
-- [ ] Autosave each answer on "next" (debounced upsert into `answers`)
-- [ ] Mark status `partial` once first answer is saved
+- [x] Create `submission` row with unguessable id on first load (before any answer)
+- [x] Store submission id in URL (`?sid=`). No cookie/localStorage, so it works in iframes
+- [x] Autosave each answer on "next" (upsert into `answers`; failures repaired when the form completes)
+- [x] Mark status `partial` once first answer is saved
 - [ ] Push partials to GHL (create/update contact as soon as email or phone is captured), tag e.g. `form-partial`
 - [ ] Optional: abandoned-lead webhook after X minutes without completion
 
 ### 4b. Question deep links
 
-- [ ] Each question addressable: `/f/[formSlug]?sid=<id>&q=<question-key>`
-- [ ] Update URL on each step (history.replaceState) so refresh/back works
-- [ ] Resume link: reloads existing answers and jumps to `q` (or first unanswered)
-- [ ] Guard: if `q` is unreachable via logic, fall back to the right question
+- [x] Each question addressable: `/f/[formSlug]?sid=<id>&q=<question-key>`
+- [x] Update URL on each step (history.replaceState) so refresh works
+- [x] Resume link: reloads existing answers and jumps to `q` (or where they left off)
+- [x] Guard: if `q` is unreachable via logic, fall back to the right question
 - [ ] Generate resume links for use in SMS/email follow-ups from GHL
 
 ### 4c. Iframe embedding (key requirement)
 
-- [ ] Public form routes (`/f/*`) must be embeddable: no `X-Frame-Options`, and a `Content-Security-Policy: frame-ancestors` header instead
+- [x] Public form routes (`/f/*`) embeddable: no `X-Frame-Options`, `Content-Security-Policy: frame-ancestors *`; every other route is `'none'`
   - Default: any site (`*`) so clients can embed anywhere
   - Optional per-form "allowed domains" list that locks `frame-ancestors` to those origins
   - Admin/editor/login routes stay **un-embeddable** (`frame-ancestors 'none'`) to prevent clickjacking
-- [ ] **No reliance on cookies or localStorage inside the iframe** (Safari/Chrome block or partition them in third-party frames). The submission id lives in the URL (`?sid=`) and is handed to the parent via postMessage so it survives a refresh
-- [ ] Auto-resize: form posts its height to the parent (`postMessage`), and a tiny `embed.js` resizes the iframe so there's no inner scrollbar
-- [ ] `embed.js` snippet that clients paste: creates the iframe, **passes the parent page's URL params** (UTMs, `fbclid`, `gclid`) and the parent URL/referrer into the form, and handles resize
+- [x] **No reliance on cookies or localStorage inside the iframe** (Safari/Chrome block or partition them in third-party frames). The submission id lives in the URL (`?sid=`) and is handed to the parent via postMessage so it survives a refresh
+- [x] Auto-resize: form posts its height to the parent (`postMessage`), and a tiny `embed.js` resizes the iframe so there's no inner scrollbar
+- [x] `embed.js` snippet that clients paste (`public/embed.js`): creates the iframe, **passes the parent page's URL params** (UTMs, `fbclid`, `gclid`) and the parent URL/referrer into the form, and handles resize
 - [ ] Plain `<iframe src>` fallback code for builders that block scripts (GHL funnels, Wix, Squarespace, WordPress)
-- [ ] Parent ↔ form events via postMessage (`form:loaded`, `form:started`, `form:step`, `form:completed`) so the host page can react or fire its own tracking
-- [ ] Redirect-on-complete and "open calendar" break out to the **top window** (`window.top.location`) via postMessage, with an allow-listed origin check
+- [x] Parent ↔ form events via postMessage (`form:loaded`, `form:started`, `form:step`, `form:completed`) so the host page can react or fire its own tracking
+- [x] Redirect-on-complete breaks out to the **top window** ("open calendar" later) (`window.top.location`) via postMessage, with an allow-listed origin check
 - [ ] Tracking inside the iframe: Meta Pixel / GA4 run in the iframe, and the server-side CAPI event is the reliable backup if the browser blocks third-party scripts. Pass `fbp`/`fbc`/`gclid` from the parent via embed.js where available
 - [ ] Mobile: `viewport` meta, no 100vh traps, keyboard doesn't cover inputs when embedded
 - [ ] Embed modes: inline, full-width, popup/modal (button or timed), slide-in
 - [ ] Embed code generator in the form's Share tab (copy button + live preview)
 - [ ] Verify: Twilio/Google Places/intl-tel-input dropdowns still work in an iframe, and `autocomplete` works
 - [ ] Test the embed on a plain HTML page, WordPress, a GHL funnel and Safari/iOS
+
+**Still open in §4/§4c:**
+- [ ] Per-form "allowed domains" for `frame-ancestors` (needs a request-time proxy; currently any site can embed)
+- [ ] Unknown form slug shows the not-found UI but returns HTTP 200 (streaming); fix when adding caching
+- [ ] Browser-test the renderer + iframe (Chrome extension wasn't connected; API flow is tested)
+- [ ] Rate limiting on `/api` routes, bot protection (Turnstile + honeypot)
+- [ ] Abandoned-lead webhook, push partials to GHL (§10)
 
 ---
 
@@ -162,21 +169,21 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(?)` needs a decision
 Each block = a self-contained module: `{ type, editorSchema, Renderer, EditorPanel, validate(), toGhl() }`, registered in a block registry so new ones are drop-in.
 
 - [ ] Block registry + interface
-- [ ] Short text, long text
+- [x] Short text, long text
 - [ ] Email (with verification, see §6)
 - [ ] **Phone — intl-tel-input** (pin version, check README for v24+ option names)
   - [ ] Options: `initialCountry: "gb"` (per-form default), `countryOrder: ["gb","ie","us"]`, `loadUtils: () => import("intl-tel-input/utils")`, `strictMode: true`
   - [ ] Wrap as a React component (init/destroy on mount/unmount)
   - [ ] Client `iti.isValidNumber()` for UX; submit `iti.getNumber()` (E.164)
   - [ ] Server re-validate with `libphonenumber-js` `isValidPhoneNumber` before saving or sending an OTP
-- [ ] Single choice (buttons / cards with image or icon)
-- [ ] Multiple choice
+- [x] Single choice (buttons / cards with image or icon)
+- [x] Multiple choice
 - [ ] Image choice grid
-- [ ] Dropdown
+- [x] Dropdown
 - [ ] Number / currency / slider
 - [ ] Date picker (locale-aware formatting via `Intl.DateTimeFormat`)
-- [ ] Yes / No
-- [ ] Rating / scale
+- [x] Yes / No
+- [x] Rating / scale
 - [ ] **Address (UK PAF lookup)**, built against our own contract so the provider can be swapped:
   - [ ] `GET /api/address/lookup?postcode=` → `{ addresses: [{ line1, line2, town, county, postcode, uprn }] }`
   - [ ] `GET /api/address/suggest?q=` → `{ suggestions: [{ id, label }] }`
@@ -189,10 +196,10 @@ Each block = a self-contained module: `{ type, editorSchema, Renderer, EditorPan
   - [ ] Debounce autocomplete ~250 ms + cache by query
   - [ ] Manual-entry fallback always available
   - [ ] Store structured address + UPRN
-- [ ] Consent / checkbox (GDPR / TCPA wording)
-- [ ] Statement / info screen (no input)
+- [x] Consent / checkbox (GDPR / TCPA wording)
+- [x] Statement / info screen (no input)
 - [ ] Calendar embed (GHL calendar) as an end step
-- [ ] Hidden field
+- [x] Hidden field
 - [ ] File upload (later)
 
 ---
