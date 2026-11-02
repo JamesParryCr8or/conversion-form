@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { setFormStatusAction } from "@/app/admin/actions";
+import { createBlankFormAction, setFormStatusAction } from "@/app/admin/actions";
 import { ClientSettingsForm } from "@/components/admin/ClientSettingsForm";
 import { ConnectionTests } from "@/components/admin/ConnectionTests";
 import { EmbedPanel } from "@/components/admin/EmbedPanel";
 import { NewFormPanel } from "@/components/admin/NewFormPanel";
-import { btnGhost, card, hint } from "@/components/admin/ui";
+import { btn, btnGhost, card, hint } from "@/components/admin/ui";
 import { getClientView } from "@/server/admin-data";
 
 export default async function ClientPage({ params }: PageProps<"/admin/clients/[id]">) {
@@ -41,18 +41,37 @@ export default async function ClientPage({ params }: PageProps<"/admin/clients/[
                   /f/{f.slug} · {f.completed} of {f.total} completed
                 </p>
               </div>
-              <form action={setFormStatusAction} className="flex items-center gap-2">
-                <input type="hidden" name="formId" value={f.id} />
-                <input type="hidden" name="status" value={f.status === "published" ? "draft" : "published"} />
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${f.status === "published" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
-                  {f.status === "published" ? "Live" : "Off"}
-                </span>
-                <button type="submit" className={btnGhost}>{f.status === "published" ? "Turn off" : "Turn on"}</button>
-              </form>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/admin/forms/${f.id}/edit`} className={btn}>Edit in builder</Link>
+                {f.published ? (
+                  <form action={setFormStatusAction} className="flex items-center gap-2">
+                    <input type="hidden" name="formId" value={f.id} />
+                    <input type="hidden" name="status" value={f.status === "published" ? "draft" : "published"} />
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${f.status === "published" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                      {f.status === "published" ? "Live" : "Off"}
+                    </span>
+                    <button type="submit" className={btnGhost}>{f.status === "published" ? "Turn off" : "Turn on"}</button>
+                  </form>
+                ) : (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Not published yet</span>
+                )}
+              </div>
             </div>
-            {f.status === "published" ? <EmbedPanel appUrl={appUrl} slug={f.slug} /> : <p className={hint}>This form is off, so its link and embed show nothing. Turn it on to use it.</p>}
+            {f.published && f.status === "published" ? (
+              <EmbedPanel appUrl={appUrl} slug={f.slug} />
+            ) : (
+              <p className={hint}>{f.published ? "This form is off, so its link and embed show nothing. Turn it on to use it." : "Open the builder and press Publish to make it live and get its embed code."}</p>
+            )}
           </div>
         ))}
+        <form action={createBlankFormAction} className="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="id" value={account.id} />
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-gray-800">Build a new form</span>
+            <input name="name" placeholder="Form name, e.g. Boiler quote" className="w-64 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+          </label>
+          <button type="submit" className={btn}>Create and open builder</button>
+        </form>
         <NewFormPanel clientId={account.id} />
       </section>
 

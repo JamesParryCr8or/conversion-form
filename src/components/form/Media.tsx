@@ -13,6 +13,9 @@ const ICONS: Record<string, LucideIcon> = {
   thumbsup: ThumbsUp, trending: TrendingUp, users: Users, wrench: Wrench, zap: Zap,
 };
 
+/** Icon names offered in the builder's icon picker. */
+export const ICON_NAMES = Object.keys(ICONS);
+
 export type MediaValue =
   | { kind: "image"; url: string; alt?: string }
   | { kind: "icon"; name: string }

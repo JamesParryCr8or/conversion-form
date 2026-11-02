@@ -12,7 +12,7 @@ const isForbidden = (key: string) => {
   return FORBIDDEN_EXACT.includes(k) || FORBIDDEN_SUBSTRINGS.some((s) => k.includes(s));
 };
 
-function findForbidden(value: unknown, path = ""): string[] {
+export function findForbidden(value: unknown, path = ""): string[] {
   if (Array.isArray(value)) return value.flatMap((v, i) => findForbidden(v, `${path}[${i}]`));
   if (value && typeof value === "object") {
     return Object.entries(value).flatMap(([k, v]) => {

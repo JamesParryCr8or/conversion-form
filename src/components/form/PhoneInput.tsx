@@ -14,6 +14,7 @@ type Props = {
   allowedCountries?: string[];
   labelId: string;
   invalid: boolean;
+  autoFocus?: boolean;
 };
 
 /**
@@ -21,7 +22,7 @@ type Props = {
  * Always reports E.164. The server re-validates with libphonenumber-js, so this is UX only.
  * The library is imported inside the effect so it never runs during server rendering.
  */
-export function PhoneInput({ initialValue, onChange, defaultCountry, preferredCountries, allowedCountries, labelId, invalid }: Props) {
+export function PhoneInput({ initialValue, onChange, defaultCountry, preferredCountries, allowedCountries, labelId, invalid, autoFocus = true }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -80,7 +81,7 @@ export function PhoneInput({ initialValue, onChange, defaultCountry, preferredCo
       type="tel"
       inputMode="tel"
       autoComplete="tel"
-      autoFocus
+      autoFocus={autoFocus}
       aria-labelledby={labelId}
       aria-invalid={invalid}
       className="w-full rounded-[var(--radius)] border-2 border-black/15 bg-white/70 px-4 py-3.5 text-lg outline-none transition focus:border-[var(--primary)] aria-[invalid=true]:border-red-500"

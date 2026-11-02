@@ -69,6 +69,7 @@ export async function getClientView(id: string) {
       name: f.name,
       slug: f.slug,
       status: f.status,
+      published: Boolean(f.publishedVersionId),
       total: Number(counts.find((c) => c.formId === f.id)?.total ?? 0),
       completed: Number(counts.find((c) => c.formId === f.id)?.done ?? 0),
     })),
@@ -115,6 +116,37 @@ export async function createClient(name: string) {
   const id = nanoid();
   await db.insert(schema.subAccounts).values({ id, name, slug, settings: {} });
   return { id, slug };
+}
+
+/** Create a form for a client as an unpublished draft (opened straight in the builder). */
+export async function createDraftForm(subAccountId: string, funnel: Funnel) {
+  await requireAdmin();
+  const [account] = await db.select().from(schema.subAccounts).where(eq(schema.subAccounts.id, subAccountId)).limit(1);
+  if (!account) throw new Error("Client not found");
+  const id = nanoid();
+  const slug = await freeFormSlug(account.slug, funnel.form.name);
+  await db.insert(schema.forms).values({ id, subAccountId, name: funnel.form.name, slug, status: "draft", draft: funnel, publishedVersionId: null });
+  return { id, slug };
+}
+
+/** Everything the builder needs for one form. */
+export async function getFormForEdit(formId: string) {
+  await requireAdmin();
+  const [form] = await db.select().from(schema.forms).where(eq(schema.forms.id, formId)).limit(1);
+  if (!form) return null;
+  const [account] = await db.select().from(schema.subAccounts).where(eq(schema.subAccounts.id, form.subAccountId)).limit(1);
+  const [published] = form.publishedVersionId
+    ? await db.select().from(schema.formVersions).where(eq(schema.formVersions.id, form.publishedVersionId)).limit(1)
+    : [];
+  return {
+    id: form.id,
+    slug: form.slug,
+    status: form.status,
+    draft: form.draft as unknown,
+    publishedVersion: published?.version ?? null,
+    hasUnpublishedChanges: !published || JSON.stringify(published.funnel) !== JSON.stringify(form.draft),
+    client: { id: account?.id ?? "", name: account?.name ?? "" },
+  };
 }
 
 export { parseFunnel };

@@ -13,6 +13,8 @@ type Props = {
   onSubmit: (v: AnswerValue) => void;
   labelId: string;
   invalid: boolean;
+  /** Builder preview: don't grab keyboard focus. */
+  noAutoFocus?: boolean;
 };
 
 /** Question types that move on as soon as an option is picked (no Continue button). */
@@ -24,17 +26,18 @@ const field =
 const choice =
   "flex w-full items-center gap-3 rounded-[var(--radius)] border-2 px-4 py-3.5 text-left text-lg transition hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
 
-export function QuestionInput({ q, value, onChange, onSubmit, labelId, invalid }: Props) {
+export function QuestionInput({ q, value, onChange, onSubmit, labelId, invalid, noAutoFocus = false }: Props) {
+  const af = !noAutoFocus;
   const common = { "aria-labelledby": labelId, "aria-invalid": invalid, className: field } as const;
   const str = typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
 
   switch (q.type) {
     case "short_text":
-      return <input {...common} autoFocus type="text" autoComplete="off" value={str} placeholder={q.placeholder} onChange={(e) => onChange(e.target.value)} />;
+      return <input {...common} autoFocus={af} type="text" autoComplete="off" value={str} placeholder={q.placeholder} onChange={(e) => onChange(e.target.value)} />;
     case "long_text":
-      return <textarea {...common} autoFocus rows={5} value={str} placeholder={q.placeholder} onChange={(e) => onChange(e.target.value)} />;
+      return <textarea {...common} autoFocus={af} rows={5} value={str} placeholder={q.placeholder} onChange={(e) => onChange(e.target.value)} />;
     case "email":
-      return <input {...common} autoFocus type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={str} placeholder="name@example.com" onChange={(e) => onChange(e.target.value)} />;
+      return <input {...common} autoFocus={af} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={str} placeholder="name@example.com" onChange={(e) => onChange(e.target.value)} />;
     case "phone":
       return (
         <PhoneInput
@@ -45,21 +48,22 @@ export function QuestionInput({ q, value, onChange, onSubmit, labelId, invalid }
           allowedCountries={q.allowedCountries}
           labelId={labelId}
           invalid={invalid}
+          autoFocus={af}
         />
       );
     case "number":
       return (
         <div className="flex items-center gap-2">
           {q.prefix && <span className="text-lg opacity-70">{q.prefix}</span>}
-          <input {...common} autoFocus type="number" inputMode="decimal" value={str} min={q.min} max={q.max} onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))} />
+          <input {...common} autoFocus={af} type="number" inputMode="decimal" value={str} min={q.min} max={q.max} onChange={(e) => onChange(e.target.value === "" ? "" : Number(e.target.value))} />
           {q.suffix && <span className="text-lg opacity-70">{q.suffix}</span>}
         </div>
       );
     case "date":
-      return <input {...common} autoFocus type="date" value={str} min={q.min} max={q.max} onChange={(e) => onChange(e.target.value)} />;
+      return <input {...common} autoFocus={af} type="date" value={str} min={q.min} max={q.max} onChange={(e) => onChange(e.target.value)} />;
     case "dropdown":
       return (
-        <select {...common} autoFocus value={str} onChange={(e) => onChange(e.target.value)}>
+        <select {...common} autoFocus={af} value={str} onChange={(e) => onChange(e.target.value)}>
           <option value="">Choose…</option>
           {q.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -132,7 +136,7 @@ export function QuestionInput({ q, value, onChange, onSubmit, labelId, invalid }
       const set = (k: string, v: string) => onChange({ ...a, [k]: v });
       return (
         <div className="grid gap-3" role="group" aria-labelledby={labelId}>
-          <input className={field} autoFocus placeholder="Address line 1" autoComplete="address-line1" value={a.line1 ?? ""} onChange={(e) => set("line1", e.target.value)} aria-invalid={invalid && !a.line1} />
+          <input className={field} autoFocus={af} placeholder="Address line 1" autoComplete="address-line1" value={a.line1 ?? ""} onChange={(e) => set("line1", e.target.value)} aria-invalid={invalid && !a.line1} />
           <input className={field} placeholder="Address line 2 (optional)" autoComplete="address-line2" value={a.line2 ?? ""} onChange={(e) => set("line2", e.target.value)} />
           <div className="grid grid-cols-2 gap-3">
             <input className={field} placeholder="Town / city" autoComplete="address-level2" value={a.town ?? ""} onChange={(e) => set("town", e.target.value)} />

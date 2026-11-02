@@ -8,7 +8,8 @@ import { db, schema } from "@/db";
 import { parseFunnel } from "@/lib/funnel/io";
 import starterTemplate from "@/lib/funnel/templates/lead-gen.json";
 import { audit, endSession, requireAdmin, startSession, tooManyLoginFailures } from "@/server/admin-auth";
-import { createClient, createPublishedForm } from "@/server/admin-data";
+import { createClient, createDraftForm, createPublishedForm } from "@/server/admin-data";
+import { blankFunnel } from "@/lib/funnel/editing";
 import { SECRET_KEYS, SETTING_KEYS, mergeSecrets, settingsSchema, type ClientSecrets } from "@/server/clients";
 import { verifyPassword } from "@/server/crypto";
 import { loadSecrets, saveSecrets } from "@/server/secrets";
@@ -223,4 +224,13 @@ export async function setFormStatusAction(fd: FormData): Promise<void> {
   await db.update(schema.forms).set({ status, updatedAt: new Date() }).where(eq(schema.forms.id, formId));
   await audit("form_status", { slug: form.slug, status }, { userId: admin.id, subAccountId: form.subAccountId });
   revalidatePath(`/admin/clients/${form.subAccountId}`);
+}
+
+export async function createBlankFormAction(fd: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const id = text(fd, "id");
+  const name = text(fd, "name").trim().slice(0, 120) || "New form";
+  const form = await createDraftForm(id, blankFunnel(name));
+  await audit("form_created", { slug: form.slug, from: "blank" }, { userId: admin.id, subAccountId: id });
+  redirect(`/admin/forms/${form.id}/edit`);
 }

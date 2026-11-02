@@ -258,22 +258,22 @@ Full reference: [docs/validation-services.md](docs/validation-services.md). All 
 - [ ] Conditions on hidden fields / URL params too (e.g. `utm_source = facebook`)
 - [ ] Logic engine shared by renderer + editor preview (pure TS function, unit-tested)
 - [ ] Answer piping: use earlier answers in later labels (`Thanks {{first_name}}`)
-- [ ] Editor: logic panel per question + simple flow view showing branches
-- [ ] Validation: detect dead ends / loops before publishing
+- [x] Logic tab: rules per question (if/and/or → go to question / end with), reorder rules, URL-parameter conditions. Still to do: visual flow view
+- [~] Validation before publishing (broken references, missing labels/options, etc. shown in red). Still to do: loop detection
 
 ---
 
 ## 8. Visual editor (admin)
 
-- [ ] Three-pane layout: question list (drag to reorder) · live preview · settings panel
-- [ ] Add question from block palette
-- [ ] Inline edit labels/descriptions directly in the preview
-- [ ] Fast media: drag-drop / paste image upload, auto-resize + WebP, icon picker (Lucide set + emoji)
-- [ ] Theme editor: colours, font, button style, background image, logo
-- [ ] Mobile / desktop preview toggle
-- [ ] Duplicate form, duplicate question, form templates
-- [ ] Draft vs published; publish creates a `form_version`
-- [ ] Undo/redo, autosave drafts
+- [x] Three-pane layout: outline (drag to reorder) · live preview of the selected step · settings panel (`/admin/forms/[id]/edit`)
+- [x] Add question from a searchable, grouped block palette (18 blocks incl. picture choice, currency, star rating, opinion scale)
+- [ ] Inline edit labels/descriptions directly in the preview (edited in the settings panel for now; preview updates live)
+- [~] Media: image upload to Vercel Blob (PNG/JPG/WebP/GIF ≤5 MB; real upload not yet tested), image URL, icon picker + emoji, alt text. Still to do: drag-drop/paste, auto-resize + WebP
+- [x] Theme editor: colours, font, button style, background image, logo (Design tab with live preview)
+- [x] Mobile / desktop preview toggle, restart, full run-through Preview tab
+- [~] Duplicate question (done). Still to do: duplicate form, save as template
+- [x] Draft vs published; autosave drafts (even unfinished); Publish validates and creates a new `form_version`; visitors part-way through keep their version (tested)
+- [x] Undo/redo (buttons + Ctrl+Z / Ctrl+Shift+Z), autosave drafts, warning before leaving with unsaved changes
 - [ ] Field mapping tab: each question → GHL field
 
 ---

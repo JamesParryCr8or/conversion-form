@@ -20,12 +20,34 @@ const getCookie = (name: string) =>
 
 const hasValue = (v: unknown) => !(v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0));
 
-export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel }) {
-  const [phase, setPhase] = useState<Phase>("loading");
+type Props = {
+  slug: string;
+  funnel: Funnel;
+  /** Builder preview: nothing is saved, no URL changes, no redirects, no messages to a parent page. */
+  preview?: boolean;
+  /** Preview only: open directly on this question (or "welcome", or an end-screen key). */
+  startAt?: string | null;
+};
+
+/** Where a builder preview opens: a given question, an ending, the welcome screen, or the first question. */
+function previewInitial(funnel: Funnel, startAt: string | null): { phase: Phase; currentKey: string | null; endKey: string | null } {
+  const end = funnel.endScreens.find((e) => e.key === startAt);
+  if (end) return { phase: "end", currentKey: null, endKey: end.key };
+  const q = funnel.questions.find((x) => x.key === startAt && x.type !== "hidden");
+  if (q) return { phase: "question", currentKey: q.key, endKey: null };
+  if (funnel.welcome && (startAt === "welcome" || !startAt)) return { phase: "welcome", currentKey: null, endKey: null };
+  const first = firstStep(funnel);
+  return first.kind === "question" ? { phase: "question", currentKey: first.key, endKey: null } : { phase: "end", currentKey: null, endKey: first.key };
+}
+
+export function FormRenderer({ slug, funnel, preview = false, startAt = null }: Props) {
+  // A preview starts in place (it is remounted whenever the builder selects a different step).
+  const [initial] = useState(() => (preview ? previewInitial(funnel, startAt) : null));
+  const [phase, setPhase] = useState<Phase>(initial?.phase ?? "loading");
   const [answers, setAnswers] = useState<Answers>({});
   const [params, setParams] = useState<Params>({});
-  const [currentKey, setCurrentKey] = useState<string | null>(null);
-  const [endKey, setEndKey] = useState<string | null>(null);
+  const [currentKey, setCurrentKey] = useState<string | null>(initial?.currentKey ?? null);
+  const [endKey, setEndKey] = useState<string | null>(initial?.endKey ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [embedded, setEmbedded] = useState(false);
@@ -45,12 +67,14 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
   /* ---------- parent page messaging + URL ---------- */
 
   const tell = (type: string, data: Record<string, unknown> = {}) => {
+    if (preview) return;
     if (window.parent !== window) {
       window.parent.postMessage({ source: "cr8or-form", type, slug, sid: sidRef.current, ...data }, "*");
     }
   };
 
   const syncUrl = (key: string | null) => {
+    if (preview) return;
     const url = new URL(window.location.href);
     if (sidRef.current) url.searchParams.set("sid", sidRef.current);
     if (key) url.searchParams.set("q", key);
@@ -62,6 +86,7 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
 
   useEffect(() => {
     let cancelled = false;
+    if (preview) return; // builder preview never touches the API
     (async () => {
       const url = new URL(window.location.href);
       const incoming: Params = {};
@@ -151,15 +176,17 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
   /* ---------- keep keyboard / screen-reader focus sensible ---------- */
 
   useEffect(() => {
+    if (preview) return; // in the builder, never pull focus away from the settings being edited
     if (phase === "question" && question && FOCUS_HEADING.has(question.type)) headingRef.current?.focus();
     if (phase === "end" || phase === "welcome") headingRef.current?.focus();
-  }, [phase, currentKey, question]);
+  }, [phase, currentKey, question, preview]);
 
   /* ---------- end-screen redirect ---------- */
 
   const endScreen = funnel.endScreens.find((e) => e.key === endKey) ?? null;
   useEffect(() => {
     const target = endScreen?.redirectUrl;
+    if (preview) return; // never navigate away from the builder
     if (phase !== "end" || !target || !/^https?:\/\//i.test(target)) return;
     const t = window.setTimeout(() => {
       if (window.parent !== window) tell("form:redirect", { url: target });
@@ -195,6 +222,7 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
   };
 
   const saveInBackground = (key: string, value: AnswerValue) => {
+    if (preview) return;
     saveQueue.current = saveQueue.current.then(() =>
       fetch(`/api/submissions/${sidRef.current}/answers`, {
         method: "PUT",
@@ -206,6 +234,12 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
   };
 
   const finish = async (finalAnswers: Answers) => {
+    if (preview) {
+      const path = computePath(funnel, finalAnswers, params);
+      setEndKey(path.endKey ?? (funnel.endScreens.find((e) => e.isDefault) ?? funnel.endScreens[0]).key);
+      setPhase("end");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -280,7 +314,7 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
   const progress = funnel.form.settings.showProgressBar && phase === "question" ? Math.min(100, Math.round((trail.length / navigableCount) * 100)) : null;
 
   return (
-    <div ref={rootRef} style={style} className={`flex w-full flex-col items-center px-4 py-8 ${embedded ? "" : "min-h-dvh justify-center"}`}>
+    <div ref={rootRef} style={style} className={`flex w-full flex-col items-center px-4 py-8 ${embedded || preview ? "" : "min-h-dvh justify-center"}`}>
       <div className="w-full max-w-xl">
         {theme.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -329,6 +363,7 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
                 onSubmit={(v) => submit(v)}
                 labelId={labelId}
                 invalid={error !== null}
+                noAutoFocus={preview}
               />
             </div>
 
@@ -353,6 +388,8 @@ export function FormRenderer({ slug, funnel }: { slug: string; funnel: Funnel })
             <Media media={endScreen.media} className="mx-auto mb-6 max-h-56 w-full" />
             <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-bold outline-none">{endScreen.title}</h1>
             {endScreen.body && <p className="mt-4 text-lg opacity-75">{endScreen.body}</p>}
+            {preview && endScreen.redirectUrl && <p className="mt-4 text-sm opacity-60">(Live form redirects to {endScreen.redirectUrl})</p>}
+            {preview && <button type="button" className="mt-6 text-sm underline opacity-70" onClick={() => { setAnswers({}); setTrail([]); setEndKey(null); if (funnel.welcome) setPhase("welcome"); else { const f = firstStep(funnel); if (f.kind === "question") { setCurrentKey(f.key); setPhase("question"); } } }}>Restart preview</button>}
           </section>
         )}
       </div>
