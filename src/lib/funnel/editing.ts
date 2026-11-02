@@ -87,7 +87,7 @@ const KEY_BASE: Partial<Record<QuestionType, string>> = { email: "email", phone:
 
 export function newQuestion(block: Block, taken: Iterable<string>): Question {
   const key = uniqueKey(KEY_BASE[block.type] ?? block.id, taken);
-  const base = { key, label: DEFAULT_LABELS[block.type], required: block.type !== "hidden" && block.type !== "statement" };
+  const base = { key, label: DEFAULT_LABELS[block.type], required: block.type !== "hidden" && block.type !== "statement", sameScreen: false };
   const options = () => [
     { value: "option_1", label: "Option 1" },
     { value: "option_2", label: "Option 2" },

@@ -2,10 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import {
-  computePath, firstStep, isNavigable, nextStep, validateAnswer,
+  computePath, firstStep, nextStep, screenHead, screenOf, screens, validateAnswer,
   type Answers, type AnswerValue, type Params,
 } from "@/lib/funnel/engine";
-import type { Funnel } from "@/lib/funnel/schema";
+import type { Funnel, Question } from "@/lib/funnel/schema";
 import { toE164Guess } from "@/lib/phone";
 import { Media } from "./Media";
 import { QuestionInput, autoAdvances } from "./QuestionInput";
@@ -34,7 +34,7 @@ function previewInitial(funnel: Funnel, startAt: string | null): { phase: Phase;
   const end = funnel.endScreens.find((e) => e.key === startAt);
   if (end) return { phase: "end", currentKey: null, endKey: end.key };
   const q = funnel.questions.find((x) => x.key === startAt && x.type !== "hidden");
-  if (q) return { phase: "question", currentKey: q.key, endKey: null };
+  if (q) return { phase: "question", currentKey: screenHead(funnel, q.key), endKey: null };
   if (funnel.welcome && (startAt === "welcome" || !startAt)) return { phase: "welcome", currentKey: null, endKey: null };
   const first = firstStep(funnel);
   return first.kind === "question" ? { phase: "question", currentKey: first.key, endKey: null } : { phase: "end", currentKey: null, endKey: first.key };
@@ -49,6 +49,7 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
   const [currentKey, setCurrentKey] = useState<string | null>(initial?.currentKey ?? null);
   const [endKey, setEndKey] = useState<string | null>(initial?.endKey ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [embedded, setEmbedded] = useState(false);
 
@@ -61,8 +62,12 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
   const labelId = useId();
 
   const theme = funnel.form.theme;
-  const navigableCount = funnel.questions.filter(isNavigable).length;
+  const screenCount = screens(funnel).length;
   const question = funnel.questions.find((q) => q.key === currentKey) ?? null;
+  /** Every question on the current screen (questions can be stacked onto one screen). */
+  const screenQs: Question[] = (currentKey ? screenOf(funnel, currentKey) : [])
+    .map((k) => funnel.questions.find((x) => x.key === k))
+    .filter((q): q is Question => Boolean(q));
 
   /* ---------- parent page messaging + URL ---------- */
 
@@ -138,7 +143,8 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
         else if (answered) target = saved?.currentQuestionKey && path.includes(saved.currentQuestionKey) ? saved.currentQuestionKey : path[path.length - 1];
 
         if (target) {
-          setTrail(path.slice(0, path.indexOf(target)));
+          target = screenHead(funnel, target);
+          setTrail(path.slice(0, path.indexOf(target)).filter((k) => screenHead(funnel, k) === k));
           setCurrentKey(target);
           setPhase("question");
         } else if (funnel.welcome) {
@@ -202,6 +208,7 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
     if (currentKey) setTrail((t) => [...t, currentKey]);
     setCurrentKey(key);
     setError(null);
+    setFieldErrors({});
     syncUrl(key);
     tell("form:step", { question: key });
   };
@@ -218,6 +225,7 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
     setTrail((t) => t.slice(0, -1));
     setCurrentKey(prev);
     setError(null);
+    setFieldErrors({});
     syncUrl(prev);
   };
 
@@ -269,30 +277,45 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
     }
   };
 
-  const submit = (override?: AnswerValue) => {
-    if (!question || busy) return;
-    let value: AnswerValue | undefined = override !== undefined ? override : answers[question.key];
-    if (typeof value === "string") {
-      value = question.type === "phone" ? toE164Guess(value, question.defaultCountry) : value.trim();
+  /**
+   * Validate every question on the current screen, save them, then move on.
+   * `overrides` carries the value of an auto-advancing choice (it hasn't been stored in state yet).
+   */
+  const submitScreen = (overrides: Record<string, AnswerValue> = {}) => {
+    if (!screenQs.length || busy) return;
+    const next: Answers = { ...answers, ...overrides };
+    const errors: Record<string, string> = {};
+    for (const q of screenQs) {
+      if (q.type === "statement") continue;
+      let value = next[q.key];
+      if (typeof value === "string") {
+        value = q.type === "phone" ? toE164Guess(value, q.defaultCountry) : value.trim();
+      }
+      next[q.key] = value;
+      const problem = validateAnswer(q, value);
+      if (problem) errors[q.key] = problem;
     }
-    const problem = validateAnswer(question, value);
-    if (problem) {
-      setError(problem);
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      setError(null);
       return;
     }
 
-    const next: Answers = question.type === "statement" ? answers : { ...answers, [question.key]: value };
     setAnswers(next);
+    setFieldErrors({});
     setError(null);
-    if (question.type !== "statement" && hasValue(value)) {
-      saveInBackground(question.key, value as AnswerValue);
-      if (!startedSent.current) {
-        startedSent.current = true;
-        tell("form:started");
-      }
+    let anyAnswer = false;
+    for (const q of screenQs) {
+      if (q.type === "statement" || !hasValue(next[q.key])) continue;
+      anyAnswer = true;
+      saveInBackground(q.key, next[q.key] as AnswerValue);
+    }
+    if (anyAnswer && !startedSent.current) {
+      startedSent.current = true;
+      tell("form:started");
     }
 
-    const step = nextStep(funnel, question.key, next, params);
+    const step = nextStep(funnel, screenQs[screenQs.length - 1].key, next, params);
     if (step.kind === "end") void finish(next);
     else go(step.key);
   };
@@ -311,7 +334,7 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
   const primaryBtn =
     "w-full rounded-[var(--radius)] bg-[var(--primary)] px-6 py-4 text-lg font-semibold text-white transition hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]";
 
-  const progress = funnel.form.settings.showProgressBar && phase === "question" ? Math.min(100, Math.round((trail.length / navigableCount) * 100)) : null;
+  const progress = funnel.form.settings.showProgressBar && phase === "question" ? Math.min(100, Math.round((trail.length / screenCount) * 100)) : null;
 
   return (
     <div ref={rootRef} style={style} className={`flex w-full flex-col items-center px-4 py-8 ${embedded || preview ? "" : "min-h-dvh justify-center"}`}>
@@ -348,24 +371,37 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
           </section>
         )}
 
-        {phase === "question" && question && (
-          <form key={question.key} onSubmit={(e) => { e.preventDefault(); submit(); }} noValidate>
-            <Media media={question.media} className="mb-6 max-h-56 w-full" />
-            <h1 id={labelId} ref={headingRef} tabIndex={-1} className="text-2xl font-bold outline-none sm:text-3xl">{question.label}</h1>
-            {question.type !== "statement" && question.description && <p className="mt-2 opacity-70">{question.description}</p>}
-            {question.type === "statement" && question.description && <p className="mt-3 text-lg opacity-75">{question.description}</p>}
+        {phase === "question" && question && screenQs.length > 0 && (
+          <form key={question.key} onSubmit={(e) => { e.preventDefault(); submitScreen(); }} noValidate>
+            {screenQs.map((q, qi) => {
+              const id = `${labelId}-${q.key}`;
+              const err = fieldErrors[q.key];
+              return (
+                <div key={q.key} className={qi > 0 ? "mt-10 border-t border-black/10 pt-8" : undefined}>
+                  <Media media={q.media} className="mb-6 max-h-56 w-full" />
+                  <h1 id={id} ref={qi === 0 ? headingRef : undefined} tabIndex={-1} className={`${qi === 0 ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"} font-bold outline-none`}>{q.label}</h1>
+                  {q.description && <p className={q.type === "statement" ? "mt-3 text-lg opacity-75" : "mt-2 opacity-70"}>{q.description}</p>}
 
-            <div className="mt-6">
-              <QuestionInput
-                q={question}
-                value={answers[question.key]}
-                onChange={(v) => { setAnswers((a) => ({ ...a, [question.key]: v })); setError(null); }}
-                onSubmit={(v) => submit(v)}
-                labelId={labelId}
-                invalid={error !== null}
-                noAutoFocus={preview}
-              />
-            </div>
+                  {q.type !== "statement" && (
+                    <div className="mt-6">
+                      <QuestionInput
+                        q={q}
+                        value={answers[q.key]}
+                        onChange={(v) => {
+                          setAnswers((a) => ({ ...a, [q.key]: v }));
+                          setFieldErrors((e) => { const rest = { ...e }; delete rest[q.key]; return rest; });
+                        }}
+                        onSubmit={(v) => submitScreen({ [q.key]: v })}
+                        labelId={id}
+                        invalid={err !== undefined}
+                        noAutoFocus={preview}
+                      />
+                    </div>
+                  )}
+                  <p role="alert" aria-live="polite" className="mt-3 min-h-6 text-sm font-medium text-red-600">{err ?? ""}</p>
+                </div>
+              );
+            })}
 
             <p role="alert" aria-live="polite" className="mt-3 min-h-6 text-sm font-medium text-red-600">{error}</p>
 
@@ -373,13 +409,13 @@ export function FormRenderer({ slug, funnel, preview = false, startAt = null }: 
               {(trail.length > 0 || funnel.welcome) && (
                 <button type="button" onClick={goBack} className="rounded-[var(--radius)] border-2 border-black/15 px-5 py-4 text-lg" aria-label="Go back">←</button>
               )}
-              {!autoAdvances(question) && (
+              {!(screenQs.length === 1 && autoAdvances(screenQs[0])) && (
                 <button type="submit" disabled={busy} className={primaryBtn}>
-                  {busy ? "Sending…" : question.type === "statement" ? question.buttonText : "Continue"}
+                  {busy ? "Sending…" : screenQs.length === 1 && screenQs[0].type === "statement" ? screenQs[0].buttonText : "Continue"}
                 </button>
               )}
             </div>
-            {busy && autoAdvances(question) && <p className="mt-3 text-center opacity-60" role="status">Sending…</p>}
+            {busy && screenQs.length === 1 && autoAdvances(screenQs[0]) && <p className="mt-3 text-center opacity-60" role="status">Sending…</p>}
           </form>
         )}
 

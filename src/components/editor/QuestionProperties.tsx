@@ -19,6 +19,8 @@ type Props = {
   onOptions: (options: Option[], renamed?: { from: string; to: string }) => void;
   /** Returns an error message, or null when renamed. */
   onRenameKey: (to: string) => string | null;
+  /** False for the first question (nothing above it to stack onto) and for hidden fields. */
+  canStack: boolean;
   onDuplicate: () => void;
   onDelete: () => void;
 };
@@ -29,7 +31,7 @@ const typeName = (q: Question) => {
   return BLOCKS.find((b) => b.type === q.type)?.label ?? q.type;
 };
 
-export function QuestionProperties({ q, formId, issues, onPatch, onOptions, onRenameKey, onDuplicate, onDelete }: Props) {
+export function QuestionProperties({ q, formId, issues, onPatch, onOptions, onRenameKey, canStack, onDuplicate, onDelete }: Props) {
   const set = (patch: Record<string, unknown>) => onPatch(patch as Partial<Question>);
   const hasRequired = q.type !== "statement" && q.type !== "hidden";
 
@@ -53,6 +55,14 @@ export function QuestionProperties({ q, formId, issues, onPatch, onOptions, onRe
         <TextField label={q.type === "hidden" ? "Name (only you see this)" : q.type === "consent" ? "Consent text" : "Question"} value={q.label} onChange={(label) => set({ label })} multiline invalid={!q.label.trim()} />
         {q.type !== "hidden" && <TextField label="Description (optional)" value={q.description} onChange={(d) => set({ description: d || undefined })} multiline />}
         {hasRequired && <Toggle label="Required" checked={q.required} onChange={(required) => set({ required })} />}
+        {canStack && (
+          <Toggle
+            label="Same screen as the question above"
+            checked={q.sameScreen}
+            onChange={(sameScreen) => set({ sameScreen })}
+            hint="Shows them together on one page with one Continue button. Logic is checked after the last question on the page."
+          />
+        )}
       </div>
 
       {q.type !== "hidden" && (

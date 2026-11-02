@@ -68,7 +68,7 @@ export function Outline({ funnel, sel, onSelect, onMove, onAdd, onAddEnding, iss
                 className={`relative ${dragFrom === i ? "opacity-40" : ""}`}
               >
                 {dropAt === i && dragFrom !== null && <div className="absolute -top-0.5 left-2 right-2 h-0.5 rounded bg-indigo-500" />}
-                <button type="button" className={item(isSel({ kind: "question", key: q.key }))} onClick={() => onSelect({ kind: "question", key: q.key })}>
+                <button type="button" className={`${item(isSel({ kind: "question", key: q.key }))} ${q.sameScreen ? "ml-5 border-l-2 border-l-indigo-200 pl-3" : ""}`} onClick={() => onSelect({ kind: "question", key: q.key })} title={q.sameScreen ? "On the same screen as the question above" : undefined}>
                   <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-gray-300 group-hover:text-gray-500" aria-hidden />
                   <span className="w-5 shrink-0 text-xs text-gray-400">{i + 1}</span>
                   <Icon className="h-4 w-4 shrink-0 text-indigo-600" aria-hidden />

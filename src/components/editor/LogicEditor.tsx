@@ -3,6 +3,7 @@
 import { ArrowDown, ArrowUp, GitBranch, Plus, Trash2, X } from "lucide-react";
 import { defaultEndKey, isNavigable } from "@/lib/funnel/engine";
 import { newRuleId, type EditorIssues } from "@/lib/funnel/editing";
+import { screens } from "@/lib/funnel/engine";
 import type { Condition, Funnel, LogicRule, Operator, Question } from "@/lib/funnel/schema";
 import { inputCls, smallBtn } from "./fields";
 
@@ -25,20 +26,23 @@ const optionsOf = (q?: Question) => (q && "options" in q ? q.options : null);
 
 /** "If [answer] [is] [value] then [go to / end]". Rules run top to bottom; the first match wins. */
 export function LogicEditor({ funnel, issues, update }: { funnel: Funnel; issues: EditorIssues; update: Update }) {
-  const questions = funnel.questions.filter(isNavigable);
+  // One entry per screen: its last question is where a rule is checked, and the next screen's first question is the jump target.
+  const screenList = screens(funnel);
+  const ends = screenList.map((s) => funnel.questions.find((x) => x.key === s[s.length - 1])!).filter(Boolean);
+  const heads = screenList.map((s) => s[0]);
 
   const setRules = (fn: (rules: LogicRule[]) => LogicRule[]) => update((f) => ({ ...f, logic: fn(f.logic) }));
   const patchRule = (id: string, patch: Partial<LogicRule>) => setRules((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
   const addRule = (q: Question, index: number) => {
     const opts = optionsOf(q);
-    const next = questions[index + 1];
+    const nextKey = heads[index + 1];
     const rule: LogicRule = {
       id: newRuleId(),
       after: q.key,
       combinator: "and",
       conditions: [{ source: { kind: "question", key: q.key }, operator: opts ? "equals" : "is_answered", value: opts?.[0]?.value }],
-      action: next ? { type: "jump", to: next.key } : { type: "end", screen: defaultEndKey(funnel) },
+      action: nextKey ? { type: "jump", to: nextKey } : { type: "end", screen: defaultEndKey(funnel) },
     };
     setRules((rs) => [...rs, rule]);
   };
@@ -62,9 +66,10 @@ export function LogicEditor({ funnel, issues, update }: { funnel: Funnel; issues
         <p className="text-sm text-gray-500">After each question, send people somewhere based on their answers (or on link parameters like utm_source). Rules are checked top to bottom; the first one that matches wins. If none match, they go to the next question.</p>
       </div>
 
-      {questions.map((q, i) => {
+      {ends.map((q, i) => {
         const rules = funnel.logic.filter((r) => r.after === q.key);
-        const next = questions[i + 1];
+        const nextKey = heads[i + 1];
+        const next = nextKey ? funnel.questions.find((x) => x.key === nextKey) : undefined;
         return (
           <section key={q.key} className="rounded-xl border border-gray-200 bg-white p-4">
             <p className="text-sm font-semibold text-gray-900"><span className="text-gray-400">{i + 1}.</span> {q.label || "Untitled"}</p>
@@ -74,6 +79,7 @@ export function LogicEditor({ funnel, issues, update }: { funnel: Funnel; issues
                   key={r.id}
                   rule={r}
                   funnel={funnel}
+                  heads={heads}
                   errors={issues.byRule[r.id] ?? []}
                   first={ri === 0}
                   last={ri === rules.length - 1}
@@ -90,7 +96,7 @@ export function LogicEditor({ funnel, issues, update }: { funnel: Funnel; issues
           </section>
         );
       })}
-      {questions.length === 0 && <p className="text-sm text-gray-500">Add some questions first.</p>}
+      {ends.length === 0 && <p className="text-sm text-gray-500">Add some questions first.</p>}
     </div>
   );
 }
@@ -98,6 +104,8 @@ export function LogicEditor({ funnel, issues, update }: { funnel: Funnel; issues
 function RuleCard(props: {
   rule: LogicRule;
   funnel: Funnel;
+  /** First question of each screen: the only valid jump targets. */
+  heads: string[];
   errors: string[];
   first: boolean;
   last: boolean;
@@ -105,7 +113,7 @@ function RuleCard(props: {
   onDelete: () => void;
   onMove: (d: -1 | 1) => void;
 }) {
-  const { rule, funnel, errors, onPatch } = props;
+  const { rule, funnel, errors, onPatch, heads } = props;
   const setCondition = (i: number, c: Condition) => onPatch({ conditions: rule.conditions.map((x, k) => (k === i ? c : x)) });
 
   return (
@@ -148,7 +156,7 @@ function RuleCard(props: {
           </select>
           {rule.action.type === "jump" ? (
             <select aria-label="Go to question" className={`${inputCls} w-auto max-w-xs`} value={rule.action.to} onChange={(e) => onPatch({ action: { type: "jump", to: e.target.value } })}>
-              {funnel.questions.filter(isNavigable).map((q, n) => <option key={q.key} value={q.key}>{n + 1}. {q.label || q.key}</option>)}
+              {heads.map((key, n) => { const q = funnel.questions.find((x) => x.key === key); return <option key={key} value={key}>{n + 1}. {q?.label || key}</option>; })}
             </select>
           ) : (
             <select aria-label="Ending" className={`${inputCls} w-auto max-w-xs`} value={rule.action.screen} onChange={(e) => onPatch({ action: { type: "end", screen: e.target.value } })}>

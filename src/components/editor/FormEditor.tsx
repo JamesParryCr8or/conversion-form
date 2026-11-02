@@ -290,6 +290,7 @@ export function FormEditor(props: EditorProps) {
                   key={selectedQuestion.key}
                   q={selectedQuestion}
                   formId={formId}
+                  canStack={selectedQuestion.type !== "hidden" && funnel.questions.findIndex((x) => x.key === selectedQuestion.key) > 0}
                   issues={issues.byQuestion[selectedQuestion.key] ?? []}
                   onPatch={(patch) => update((f) => updateQuestion(f, selectedQuestion.key, patch))}
                   onOptions={(options, renamed) =>

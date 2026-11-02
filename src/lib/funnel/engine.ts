@@ -56,15 +56,37 @@ export function defaultEndKey(funnel: Funnel): string {
   return (funnel.endScreens.find((e) => e.isDefault) ?? funnel.endScreens[0]).key;
 }
 
-export function firstStep(funnel: Funnel): Step {
-  const first = funnel.questions.find(isNavigable);
-  return first ? { kind: "question", key: first.key } : { kind: "end", key: defaultEndKey(funnel) };
+/** Visible questions grouped into screens. A question with sameScreen joins the screen above it. */
+export function screens(funnel: Funnel): string[][] {
+  const out: string[][] = [];
+  for (const q of funnel.questions) {
+    if (!isNavigable(q)) continue;
+    if (q.sameScreen && out.length) out[out.length - 1].push(q.key);
+    else out.push([q.key]);
+  }
+  return out;
 }
 
-/** Where to go after answering `currentKey`. Logic rules win; otherwise the next question in order. */
+/** Every question key on the same screen as `key` (or just [key] if unknown). */
+export function screenOf(funnel: Funnel, key: string): string[] {
+  return screens(funnel).find((s) => s.includes(key)) ?? [key];
+}
+
+/** The first question on the screen that `key` belongs to. */
+export function screenHead(funnel: Funnel, key: string): string {
+  return screenOf(funnel, key)[0];
+}
+
+export function firstStep(funnel: Funnel): Step {
+  const first = screens(funnel)[0]?.[0];
+  return first ? { kind: "question", key: first } : { kind: "end", key: defaultEndKey(funnel) };
+}
+
+/** Where to go after the screen containing `currentKey`. Logic rules (checked on the screen's last question) win. */
 export function nextStep(funnel: Funnel, currentKey: string, answers: Answers, params: Params): Step {
+  const onScreen = screenOf(funnel, currentKey);
   for (const rule of funnel.logic) {
-    if (rule.after !== currentKey) continue;
+    if (!onScreen.includes(rule.after)) continue;
     const results = rule.conditions.map((c) => evaluateCondition(c, answers, params));
     const matched = rule.combinator === "or" ? results.some(Boolean) : results.every(Boolean);
     if (!matched) continue;
@@ -72,28 +94,28 @@ export function nextStep(funnel: Funnel, currentKey: string, answers: Answers, p
       ? { kind: "question", key: rule.action.to }
       : { kind: "end", key: rule.action.screen };
   }
-  const idx = funnel.questions.findIndex((q) => q.key === currentKey);
-  const next = funnel.questions.slice(idx + 1).find(isNavigable);
-  return next ? { kind: "question", key: next.key } : { kind: "end", key: defaultEndKey(funnel) };
+  const all = screens(funnel);
+  const idx = all.findIndex((s) => s.includes(currentKey));
+  const next = all[idx + 1]?.[0];
+  return next ? { kind: "question", key: next } : { kind: "end", key: defaultEndKey(funnel) };
 }
 
-/**
- * Walk the funnel with the given answers. Stops at the first question that is
- * unanswered/invalid (`missing`) or when an end screen is reached (`endKey`).
- */
 export function computePath(funnel: Funnel, answers: Answers, params: Params) {
   const path: string[] = [];
   let step = firstStep(funnel);
   for (let guard = 0; guard < funnel.questions.length * 4 + 10; guard++) {
     if (step.kind === "end") return { path, endKey: step.key, missing: null as string | null };
-    const q = funnel.questions.find((x) => x.key === step.key);
-    if (!q) return { path, endKey: null, missing: step.key };
-    path.push(q.key);
-    const needsAnswer = q.type !== "statement";
-    if (needsAnswer && (q.required || !isEmpty(answers[q.key]))) {
-      if (validateAnswer(q, answers[q.key]) !== null) return { path, endKey: null, missing: q.key };
+    const keys = screenOf(funnel, step.key);
+    if (!funnel.questions.some((x) => x.key === step.key)) return { path, endKey: null, missing: step.key };
+    for (const key of keys) {
+      const q = funnel.questions.find((x) => x.key === key)!;
+      path.push(q.key);
+      const needsAnswer = q.type !== "statement";
+      if (needsAnswer && (q.required || !isEmpty(answers[q.key]))) {
+        if (validateAnswer(q, answers[q.key]) !== null) return { path, endKey: null, missing: q.key };
+      }
     }
-    step = nextStep(funnel, q.key, answers, params);
+    step = nextStep(funnel, keys[keys.length - 1], answers, params);
   }
   return { path, endKey: null, missing: "loop" as string | null }; // logic loop; never completes
 }

@@ -39,6 +39,8 @@ const optionSchema = z.object({
 
 const base = {
   key: keySchema,
+  /** Show on the same screen as the question above (questions stack into one screen). */
+  sameScreen: z.boolean().default(false),
   label: z.string().min(1).max(500),
   description: z.string().max(1000).optional(),
   required: z.boolean().default(true),
