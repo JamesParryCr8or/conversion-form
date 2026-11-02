@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { createBlankFormAction, setFormStatusAction } from "@/app/admin/actions";
 import { ClientSettingsForm } from "@/components/admin/ClientSettingsForm";
 import { ConnectionTests } from "@/components/admin/ConnectionTests";
+import { DeleteFormButton } from "@/components/admin/DeleteFormButton";
 import { EmbedPanel } from "@/components/admin/EmbedPanel";
 import { NewFormPanel } from "@/components/admin/NewFormPanel";
 import { btn, btnGhost, card, hint } from "@/components/admin/ui";
@@ -43,6 +44,7 @@ export default async function ClientPage({ params }: PageProps<"/admin/clients/[
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link href={`/admin/forms/${f.id}/edit`} className={btn}>Edit in builder</Link>
+                <DeleteFormButton formId={f.id} name={f.name} submissions={f.total} />
                 {f.published ? (
                   <form action={setFormStatusAction} className="flex items-center gap-2">
                     <input type="hidden" name="formId" value={f.id} />

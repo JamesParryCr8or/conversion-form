@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -233,4 +233,21 @@ export async function createBlankFormAction(fd: FormData): Promise<void> {
   const form = await createDraftForm(id, blankFunnel(name));
   await audit("form_created", { slug: form.slug, from: "blank" }, { userId: admin.id, subAccountId: id });
   redirect(`/admin/forms/${form.id}/edit`);
+}
+
+/** Permanently delete a form, its versions and ALL its submissions. Only runs when the typed name matches. */
+export async function deleteFormAction(fd: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const formId = text(fd, "formId");
+  const typed = text(fd, "confirmName").trim();
+  const [form] = await db.select().from(schema.forms).where(eq(schema.forms.id, formId)).limit(1);
+  if (!form || typed !== form.name) return;
+
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(schema.submissions)
+    .where(eq(schema.submissions.formId, formId));
+  await db.delete(schema.forms).where(eq(schema.forms.id, formId)); // cascades to versions, submissions, answers, events
+  await audit("form_deleted", { slug: form.slug, name: form.name, submissionsDeleted: Number(n) }, { userId: admin.id, subAccountId: form.subAccountId });
+  revalidatePath(`/admin/clients/${form.subAccountId}`);
 }
