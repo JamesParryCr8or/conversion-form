@@ -85,8 +85,10 @@ export async function uploadImageAction(formId: string, fd: FormData): Promise<R
   if (file.size > MAX_IMAGE_BYTES) return { ok: false, error: "Images must be 5 MB or smaller." };
 
   try {
-    const blob = await put(`forms/${formId}/${nanoid(10)}.${ext}`, file, { access: "public", contentType: file.type, addRandomSuffix: false });
-    return { ok: true, url: blob.url };
+    // The store is private, so files are stored privately and served through /api/media (see that route).
+    const pathname = `forms/${formId}/${nanoid(10)}.${ext}`;
+    await put(pathname, file, { access: "private", contentType: file.type, addRandomSuffix: false });
+    return { ok: true, url: `/api/media/${pathname}` };
   } catch (e) {
     console.error("[upload] failed:", (e as Error).message);
     return { ok: false, error: "Upload failed. Check BLOB_READ_WRITE_TOKEN is set for this environment, or paste an image URL instead." };
