@@ -11,13 +11,22 @@ import { z } from "zod";
 export const SCHEMA_VERSION = 1;
 
 const keyRegex = /^[a-z][a-z0-9_]{0,47}$/;
+
+/** An image address: a full https URL, or an image uploaded through this app (/api/media/forms/...). */
+export const imageUrlSchema = z
+  .string()
+  .max(500)
+  .refine(
+    (u) => /^https:\/\/[^\s]+$/i.test(u) || /^\/api\/media\/forms\/[A-Za-z0-9_\-\/]{1,120}\.(png|jpe?g|webp|gif)$/i.test(u),
+    "Use a full https:// image address",
+  );
 export const keySchema = z
   .string()
   .regex(keyRegex, "Use lowercase letters, numbers and underscores, starting with a letter");
 
 const mediaSchema = z
   .discriminatedUnion("kind", [
-    z.object({ kind: z.literal("image"), url: z.string().url(), alt: z.string().max(200).optional() }),
+    z.object({ kind: z.literal("image"), url: imageUrlSchema, alt: z.string().max(200).optional() }),
     z.object({ kind: z.literal("icon"), name: z.string().min(1).max(60) }), // Lucide icon name or emoji
   ])
   .optional();
@@ -134,8 +143,8 @@ export const themeSchema = z.object({
   textColor: z.string().default("#111827"),
   fontFamily: z.string().default("Inter"),
   buttonStyle: z.enum(["rounded", "pill", "square"]).default("rounded"),
-  backgroundImageUrl: z.string().url().optional(),
-  logoUrl: z.string().url().optional(),
+  backgroundImageUrl: imageUrlSchema.optional(),
+  logoUrl: imageUrlSchema.optional(),
 });
 
 export const settingsSchema = z.object({

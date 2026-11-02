@@ -107,3 +107,14 @@ describe("validateAnswer", () => {
     expect(validateAnswer(q("consent"), true)).toBeNull();
   });
 });
+
+describe("image addresses", () => {
+  it("accepts https and uploaded /api/media images, rejects others", async () => {
+    const { imageUrlSchema } = await import("./schema");
+    expect(imageUrlSchema.safeParse("https://cdn.example.com/logo.png").success).toBe(true);
+    expect(imageUrlSchema.safeParse("/api/media/forms/abc123/x9Y8z.png").success).toBe(true);
+    expect(imageUrlSchema.safeParse("http://insecure.example.com/a.png").success).toBe(false);
+    expect(imageUrlSchema.safeParse("javascript:alert(1)").success).toBe(false);
+    expect(imageUrlSchema.safeParse("/api/media/forms/../../secret.png").success).toBe(false);
+  });
+});
