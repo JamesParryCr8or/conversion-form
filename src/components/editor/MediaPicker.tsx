@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { uploadImageAction } from "@/app/admin/editor-actions";
 import { ICON_NAMES, Media, type MediaValue } from "@/components/form/Media";
 import { inputCls, smallBtn } from "./fields";
 
@@ -27,13 +26,19 @@ export function MediaPicker({ formId, value, onChange, allowIcon = true, label =
     setError(null);
     const fd = new FormData();
     fd.append("file", file);
-    const r = await uploadImageAction(formId, fd);
-    setBusy(false);
-    if (r.ok && r.url) {
-      onChange({ kind: "image", url: r.url, alt: "" });
-      setMode("none");
-    } else if (!r.ok) {
-      setError(r.error);
+    try {
+      const res = await fetch(`/api/admin/upload?formId=${encodeURIComponent(formId)}`, { method: "POST", body: fd });
+      const r = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+      if (res.ok && r.ok && r.url) {
+        onChange({ kind: "image", url: r.url, alt: "" });
+        setMode("none");
+      } else {
+        setError(r.error ?? `Upload failed (${res.status}).`);
+      }
+    } catch {
+      setError("Upload failed: couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setBusy(false);
     }
   }
 

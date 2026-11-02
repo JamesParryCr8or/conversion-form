@@ -1,6 +1,5 @@
 "use server";
 
-import { put } from "@vercel/blob";
 import { desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
@@ -67,30 +66,4 @@ export async function publishFormAction(formId: string): Promise<Result> {
   await audit("form_published", { slug: form.slug, version }, { userId: admin.id, subAccountId: form.subAccountId });
   revalidatePath(`/admin/clients/${form.subAccountId}`);
   return { ok: true, version, message: `Published version ${version}.` };
-}
-
-const IMAGE_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" };
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-
-/** Upload an image for a form (questions, options, logo, background) to Vercel Blob. */
-export async function uploadImageAction(formId: string, fd: FormData): Promise<Result> {
-  await requireAdmin();
-  const form = await loadForm(formId);
-  if (!form) return { ok: false, error: "Form not found." };
-
-  const file = fd.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Choose an image to upload." };
-  const ext = IMAGE_TYPES[file.type];
-  if (!ext) return { ok: false, error: "Use a PNG, JPG, WebP or GIF image." };
-  if (file.size > MAX_IMAGE_BYTES) return { ok: false, error: "Images must be 5 MB or smaller." };
-
-  try {
-    // The store is private, so files are stored privately and served through /api/media (see that route).
-    const pathname = `forms/${formId}/${nanoid(10)}.${ext}`;
-    await put(pathname, file, { access: "private", contentType: file.type, addRandomSuffix: false });
-    return { ok: true, url: `/api/media/${pathname}` };
-  } catch (e) {
-    console.error("[upload] failed:", (e as Error).message);
-    return { ok: false, error: "Upload failed. Check BLOB_READ_WRITE_TOKEN is set for this environment, or paste an image URL instead." };
-  }
 }
