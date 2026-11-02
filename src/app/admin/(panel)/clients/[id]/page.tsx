@@ -44,6 +44,7 @@ export default async function ClientPage({ params }: PageProps<"/admin/clients/[
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link href={`/admin/forms/${f.id}/edit`} className={btn}>Edit in builder</Link>
+                <Link href={`/admin/forms/${f.id}/results`} className={btnGhost}>Results</Link>
                 <DeleteFormButton formId={f.id} name={f.name} submissions={f.total} />
                 {f.published ? (
                   <form action={setFormStatusAction} className="flex items-center gap-2">
@@ -89,7 +90,7 @@ export default async function ClientPage({ params }: PageProps<"/admin/clients/[
         />
         <ConnectionTests id={account.id} hasGhl={Boolean(account.settings.ghlLocationId && secrets.set.ghlPit)} hasMeta={Boolean(account.settings.metaPixelId && secrets.set.metaCapiToken)} />
         <p className={hint}>
-          Saving keeps these details for this client only. Sending leads to GHL and events to Meta/Google from the form is the next build step, so nothing is sent yet.
+          Saving keeps these details for this client only. Completed leads go to GHL as contacts with a note of all their answers. Meta and Google events are not sent yet.
         </p>
       </section>
     </div>

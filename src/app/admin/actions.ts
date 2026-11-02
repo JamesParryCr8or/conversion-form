@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,6 +12,7 @@ import { createClient, createDraftForm, createPublishedForm } from "@/server/adm
 import { blankFunnel } from "@/lib/funnel/editing";
 import { SECRET_KEYS, SETTING_KEYS, mergeSecrets, settingsSchema, type ClientSecrets } from "@/server/clients";
 import { verifyPassword } from "@/server/crypto";
+import { sendToGhl } from "@/server/crm";
 import { loadSecrets, saveSecrets } from "@/server/secrets";
 
 export type ActionState = { ok?: boolean; message?: string; error?: string; fieldErrors?: Record<string, string> } | null;
@@ -251,3 +252,21 @@ export async function deleteFormAction(fd: FormData): Promise<void> {
   await audit("form_deleted", { slug: form.slug, name: form.name, submissionsDeleted: Number(n) }, { userId: admin.id, subAccountId: form.subAccountId });
   revalidatePath(`/admin/clients/${form.subAccountId}`);
 }
+
+/* ---------------- Results ---------------- */
+
+/** Send a completed lead to GHL again (for leads that failed or were never sent). */
+export async function retryCrmAction(fd: FormData): Promise<void> {
+  await requireAdmin();
+  const formId = text(fd, "formId");
+  const sid = text(fd, "submissionId");
+  const [sub] = await db
+    .select()
+    .from(schema.submissions)
+    .where(and(eq(schema.submissions.id, sid), eq(schema.submissions.formId, formId)))
+    .limit(1);
+  if (!sub) return;
+  await sendToGhl(sid);
+  revalidatePath(`/admin/forms/${formId}/results`);
+}
+

@@ -20,7 +20,7 @@ Reference spec supplied by James (last checked against source docs: 16 Oct 2026)
 | Key | Where to get it | Notes |
 |---|---|---|
 | Address API key | Chosen PAF provider's dashboard | Pick a provider first (section 2) |
-| `GHL_PIT_TOKEN` | GHL sub-account: Settings > Private Integrations, scope `lc-email.readonly` | Sub-account token, not agency |
+| `GHL_PIT_TOKEN` | GHL sub-account: Settings > Private Integrations. Scopes: `contacts.readonly`, `contacts.write` (send leads), `locations.readonly` (connection test), `lc-email.readonly` (email checks) | Sub-account token, not agency |
 | `GHL_LOCATION_ID` | GHL sub-account settings | Verification charges bill to this location |
 | `TWILIO_ACCOUNT_SID` | Twilio Console home (`AC...`) | |
 | `TWILIO_API_KEY` | Twilio Console > API keys (`SK...`) | Use an API key rather than the main auth token |
@@ -60,6 +60,10 @@ GET /api/address/retrieve?id=...
 Rules: normalise postcodes (uppercase, single space before final 3 chars); debounce autocomplete ~250 ms and cache by query; always allow manual entry; store structured address + UPRN.
 
 ---
+
+## 2b. Sending leads to GHL (built)
+
+On completion the server upserts a contact (`POST /contacts/upsert`, matched on email) with name, phone, address and tags `cr8or-form` plus the form slug, then adds a note with every answer (`POST /contacts/{id}/notes`). Names come from questions keyed `first_name` / `last_name`, or `full_name` / `name` split on the first space. Failures are logged and can be retried from the form's Results page. Sending runs after the visitor's response, so it never delays them.
 
 ## 3. Email validation (GoHighLevel)
 

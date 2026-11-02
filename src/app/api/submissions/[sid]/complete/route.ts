@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { db, schema } from "@/db";
 import { computePath } from "@/lib/funnel/engine";
 import { getSubmissionContext, json, readJson } from "@/server/forms";
 import { saveAnswers } from "@/server/answers";
+import { sendToGhl } from "@/server/crm";
 
 /**
  * Finish a submission. The browser may resend all its answers (covers any autosave that
@@ -34,6 +36,9 @@ export async function POST(req: Request, ctx: RouteContext<"/api/submissions/[si
     .update(schema.submissions)
     .set({ status: "completed", endScreenKey: path.endKey, completedAt: now, updatedAt: now })
     .where(eq(schema.submissions.id, sid));
+
+  // Send to the client's CRM after the response, so the visitor isn't kept waiting.
+  after(() => sendToGhl(sid).catch(() => undefined));
 
   return json({ ok: true, endKey: path.endKey });
 }

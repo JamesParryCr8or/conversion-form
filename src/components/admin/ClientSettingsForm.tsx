@@ -106,7 +106,7 @@ export function ClientSettingsForm({ id, name, timezone, settings, secretsSet, s
       <section className={`${card} space-y-4`}>
         <div>
           <h2 className="font-semibold">GoHighLevel</h2>
-          <p className={hint}>Where this client&apos;s leads are sent. In their GHL sub-account: Settings, then Private Integrations. Give the token the scopes for contacts, plus <code>locations.readonly</code> (for the test) and <code>lc-email.readonly</code> (email checks).</p>
+          <p className={hint}>Where this client&apos;s leads are sent. In their GHL sub-account: Settings, then Private Integrations. Give the token <code>contacts.readonly</code> and <code>contacts.write</code> (to send leads), <code>locations.readonly</code> (for the test) and <code>lc-email.readonly</code> (email checks).</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {text("ghlLocationId", "Location ID", { placeholder: "e.g. 5DP4iH6HLkQsiKESj6rh", help: "Settings, then Business Profile, in the sub-account." })}

@@ -1,7 +1,8 @@
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, schema } from "@/db";
 import { parseFunnel } from "@/lib/funnel/io";
+import { formatAnswer } from "@/lib/funnel/format";
 import type { Funnel } from "@/lib/funnel/schema";
 import { requireAdmin } from "./admin-auth";
 import { slugify, type ClientSettings } from "./clients";
@@ -146,6 +147,93 @@ export async function getFormForEdit(formId: string) {
     publishedVersion: published?.version ?? null,
     hasUnpublishedChanges: !published || JSON.stringify(published.funnel) !== JSON.stringify(form.draft),
     client: { id: account?.id ?? "", name: account?.name ?? "" },
+  };
+}
+
+export type ResultRow = {
+  id: string;
+  createdAt: Date;
+  status: "started" | "partial" | "completed";
+  answers: Record<string, string>;
+  params: Record<string, string>;
+  crm: "sent" | "failed" | "not_sent" | "n/a";
+  crmError: string | null;
+};
+
+/** Submissions for one form, with each answer as readable text. Secrets are never read here. */
+export async function getFormResults(formId: string) {
+  await requireAdmin();
+  const [form] = await db.select().from(schema.forms).where(eq(schema.forms.id, formId)).limit(1);
+  if (!form) return null;
+  const [published] = form.publishedVersionId
+    ? await db.select().from(schema.formVersions).where(eq(schema.formVersions.id, form.publishedVersionId)).limit(1)
+    : [];
+  const parsed = parseFunnel(published?.funnel ?? form.draft);
+  if (!parsed.ok) return null;
+  const funnel = parsed.funnel;
+  const [account] = await db.select().from(schema.subAccounts).where(eq(schema.subAccounts.id, form.subAccountId)).limit(1);
+  const crmConfigured = Boolean(account?.settings?.ghlLocationId) && (await secretStatus(form.subAccountId)).set.ghlPit === true;
+
+  const subs = await db
+    .select()
+    .from(schema.submissions)
+    .where(eq(schema.submissions.formId, formId))
+    .orderBy(desc(schema.submissions.createdAt))
+    .limit(300);
+  const answerRows = subs.length
+    ? await db.select().from(schema.answers).where(inArray(schema.answers.submissionId, subs.map((s) => s.id)))
+    : [];
+
+  // Latest CRM failure per submission (audit rows come back newest first).
+  const failures = new Map<string, string>();
+  const failedRows = await db
+    .select({ detail: schema.auditLog.detail })
+    .from(schema.auditLog)
+    .where(and(eq(schema.auditLog.subAccountId, form.subAccountId), eq(schema.auditLog.action, "crm_failed")))
+    .orderBy(desc(schema.auditLog.createdAt))
+    .limit(500);
+  for (const row of failedRows) {
+    const d = row.detail as { submissionId?: string; error?: string } | null;
+    if (d?.submissionId && d.error && !failures.has(d.submissionId)) failures.set(d.submissionId, d.error);
+  }
+
+  // Columns: the current questions in order, then any extra keys from older versions.
+  const shown = funnel.questions.filter((q) => q.type !== "statement" && q.type !== "hidden");
+  const columns = shown.map((q) => ({ key: q.key, label: q.label }));
+  const extraKeys = [...new Set(answerRows.map((a) => a.questionKey))].filter((k) => !shown.some((q) => q.key === k));
+  for (const k of extraKeys) columns.push({ key: k, label: k });
+
+  const rows: ResultRow[] = subs.map((s) => {
+    const mine = answerRows.filter((a) => a.submissionId === s.id);
+    const answers: Record<string, string> = {};
+    for (const a of mine) {
+      const q = funnel.questions.find((x) => x.key === a.questionKey);
+      answers[a.questionKey] = q ? formatAnswer(q, a.value) : String(a.value ?? "");
+    }
+    const crmError = failures.get(s.id) ?? null;
+    const crm: ResultRow["crm"] = s.ghlContactId
+      ? "sent"
+      : s.status !== "completed"
+        ? "n/a"
+        : !crmConfigured
+          ? "n/a"
+          : crmError
+            ? "failed"
+            : "not_sent";
+    return { id: s.id, createdAt: s.createdAt, status: s.status, answers, params: s.params ?? {}, crm, crmError };
+  });
+
+  return {
+    form: { id: form.id, name: form.name, slug: form.slug, status: form.status, subAccountId: form.subAccountId },
+    columns,
+    crmConfigured,
+    summary: {
+      total: subs.length,
+      completed: subs.filter((s) => s.status === "completed").length,
+      inProgress: subs.filter((s) => s.status !== "completed").length,
+      sentToCrm: subs.filter((s) => Boolean(s.ghlContactId)).length,
+    },
+    rows,
   };
 }
 

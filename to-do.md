@@ -99,6 +99,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(?)` needs a decision
 - [x] Client list + add client + edit screen (`/admin`, `/admin/clients/[id]`)
 - [x] Credentials form with masked, write-only inputs (encrypted at rest), "test connection" buttons:
   - [~] GHL: verify PIT + Location ID by fetching the location (done; untested with real credentials). Still to do: list custom fields, confirm `lc-email.readonly` scope
+- [x] **Completed leads to GHL**: on submit, upsert the contact (email, phone, name, address, tags) and add a note with every answer. Runs after the response. Failures logged and retryable from Results. Needs PIT scopes `contacts.readonly` + `contacts.write`. Not yet tested against live GHL.
+- [x] **Results page** per form (`/admin/forms/[id]/results`): counts, every answer, source, GHL status, retry.
   - [~] Meta: checks the pixel/token pair via the Graph API (done; untested with real credentials). Still to do: send a real test CAPI event with the test event code
   - [ ] Google: GA4 debug validation endpoint
   - [ ] Twilio: fetch the Verify service with the API key/secret
