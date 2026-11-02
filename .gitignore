@@ -44,3 +44,4 @@ next-env.d.ts
 /local.db*
 *.tsbuildinfo
 !.env.example
+/e2e.db*

@@ -81,7 +81,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(?)` needs a decision
 
 ## 3a. Auth & client logins
 
-- [ ] Auth.js: email magic link + optional password (magic links sent via Resend or GHL, same sender as email OTP)
+- [~] Super admin sign-in built (email + password, scrypt hashes, signed 7-day session cookie, login throttling, every page and action re-checks the session). Created with `npm run admin:create`. Still to do for client logins: magic links, invites, roles below, and Auth.js if we outgrow this
 - [ ] Roles:
   - **Super admin** (you): everything, all sub-accounts, global templates
   - **Owner**: their sub-account's settings, credentials, users, forms, submissions
@@ -90,16 +90,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(?)` needs a decision
 - [ ] Invite flow: you invite a client by email → they set up login → land in their sub-account
 - [ ] Sub-account switcher for users with multiple memberships
 - [ ] **Data isolation**: every query scoped by sub_account_id via one server-side helper; tests that client A can never read client B's forms, submissions or secrets
-- [ ] Secrets are write-only in the UI (shown masked, replace-only, never sent back to the browser)
+- [x] Secrets are write-only in the UI (shown as "Saved", replace or remove only, never sent back to the browser; proven by test)
 - [ ] Super admin "view as client" for support
-- [ ] Audit log: who changed credentials / published forms
+- [x] Audit log: logins, client and credential changes (names of fields only, never values), form status changes
 
 ## 3. Sub-account management (admin)
 
-- [ ] Sub-account list + create/edit screen
-- [ ] Credentials form with masked inputs, "test connection" buttons:
-  - [ ] GHL: verify PIT + Location ID (fetch location, list custom fields) and confirm `lc-email.readonly` scope works
-  - [ ] Meta: send a test CAPI event with test event code
+- [x] Client list + add client + edit screen (`/admin`, `/admin/clients/[id]`)
+- [x] Credentials form with masked, write-only inputs (encrypted at rest), "test connection" buttons:
+  - [~] GHL: verify PIT + Location ID by fetching the location (done; untested with real credentials). Still to do: list custom fields, confirm `lc-email.readonly` scope
+  - [~] Meta: checks the pixel/token pair via the Graph API (done; untested with real credentials). Still to do: send a real test CAPI event with the test event code
   - [ ] Google: GA4 debug validation endpoint
   - [ ] Twilio: fetch the Verify service with the API key/secret
   - [ ] Address: test lookup of a known UK postcode (Royal Mail) + a non-UK address (Google)
@@ -151,7 +151,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `(?)` needs a decision
 - [ ] Tracking inside the iframe: Meta Pixel / GA4 run in the iframe, and the server-side CAPI event is the reliable backup if the browser blocks third-party scripts. Pass `fbp`/`fbc`/`gclid` from the parent via embed.js where available
 - [ ] Mobile: `viewport` meta, no 100vh traps, keyboard doesn't cover inputs when embedded
 - [ ] Embed modes: inline, full-width, popup/modal (button or timed), slide-in
-- [ ] Embed code generator in the form's Share tab (copy button + live preview)
+- [x] Embed code generator per form in the admin (script embed, plain iframe, direct link, copy buttons, live preview)
 - [ ] Verify: Twilio/Google Places/intl-tel-input dropdowns still work in an iframe, and `autocomplete` works
 - [ ] Test the embed on a plain HTML page, WordPress, a GHL funnel and Safari/iOS
 

@@ -22,6 +22,8 @@ export const subAccounts = sqliteTable("sub_accounts", {
   slug: text("slug").notNull().unique(),
   timezone: text("timezone").notNull().default("Europe/London"),
   branding: text("branding", { mode: "json" }).$type<{ logoUrl?: string; primaryColor?: string; font?: string }>(),
+  /** Non-secret integration settings (ids that appear in page source anyway). Secrets live in sub_account_secrets. */
+  settings: text("settings", { mode: "json" }).$type<Record<string, string>>(),
   plan: text("plan").notNull().default("internal"), // for future self-serve
   createdAt: createdAt(),
 });

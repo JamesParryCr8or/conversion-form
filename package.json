@@ -10,7 +10,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx --env-file=.env.local scripts/seed.mts"
+    "db:seed": "tsx --env-file=.env.local scripts/seed.mts",
+    "admin:create": "tsx --env-file=.env.local scripts/create-admin.mts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
